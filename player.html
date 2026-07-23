@@ -3,7 +3,7 @@
 html,body{margin:0;padding:0;background:#000;overflow:hidden;width:100%;height:100%;}
 #player{width:100%;height:100%;}
 
-/* Скрываем все субтитры принудительно */
+/* Статические стили для надёжности */
 .ytp-caption-window-container,
 .ytp-caption-window,
 .caption-window,
@@ -30,6 +30,7 @@ var pendingStart = 0;
 var lastVolume = 80;
 var skipInterval = null;
 var volumeRecoveryInterval = null;
+var subtitleInterval = null;   // новый интервал для скрытия субтитров
 
 var tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
@@ -58,41 +59,35 @@ function onYouTubeIframeAPIReady() {
                 if (pendingId) {
                     e.target.loadVideoById({ videoId: pendingId, startSeconds: pendingStart });
                 }
-                // Запускаем автоматический пропуск рекламы
                 startAdSkipper();
-                // Запускаем восстановление громкости
                 startVolumeRecovery();
+                startSubtitleRemover();   // запускаем очистку субтитров
             },
             'onStateChange': function(e) {
-                // Перезапускаем скиппер при смене состояния (например, началась реклама)
                 if (e.data == YT.PlayerState.PLAYING) {
                     startAdSkipper();
+                    startSubtitleRemover();   // при каждом новом видео тоже запускаем
                 }
             }
         }
     });
 }
 
-// Автоматический пропуск рекламы
+// Автоматический пропуск рекламы (оставлено без изменений)
 function startAdSkipper() {
     if (skipInterval) clearInterval(skipInterval);
     skipInterval = setInterval(function() {
         try {
-            // Ищем кнопку "Skip Ad" / "Пропустить"
             var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
             if (skipBtn && skipBtn.offsetParent !== null) {
                 skipBtn.click();
             }
-            
-            // Закрываем рекламные баннеры
             var closeButtons = document.querySelectorAll('.ytp-ad-overlay-close-button, .ytp-ad-overlay-close-container');
             for (var i = 0; i < closeButtons.length; i++) {
                 if (closeButtons[i].offsetParent !== null) {
                     closeButtons[i].click();
                 }
             }
-            
-            // Закрываем оверлеи
             var overlays = document.querySelectorAll('.ytp-ad-overlay-container, .ytp-ad-overlay-image, .ytp-ad-overlay-ad-info-button-container');
             for (var i = 0; i < overlays.length; i++) {
                 if (overlays[i].offsetParent !== null) {
@@ -100,10 +95,10 @@ function startAdSkipper() {
                 }
             }
         } catch(e) {}
-    }, 500); // проверяем каждые 500 мс
+    }, 500);
 }
 
-// Восстановление громкости (реклама может отключить звук)
+// Восстановление громкости (оставлено без изменений)
 function startVolumeRecovery() {
     if (volumeRecoveryInterval) clearInterval(volumeRecoveryInterval);
     volumeRecoveryInterval = setInterval(function() {
@@ -115,12 +110,40 @@ function startVolumeRecovery() {
     }, 2000);
 }
 
+// НОВАЯ функция: принудительно удаляет все субтитры каждые 500 мс
+function startSubtitleRemover() {
+    if (subtitleInterval) clearInterval(subtitleInterval);
+    subtitleInterval = setInterval(function() {
+        try {
+            // Удаляем все возможные контейнеры субтитров
+            var selectors = [
+                '.ytp-caption-window-container',
+                '.ytp-caption-window',
+                '.caption-window',
+                '#ytp-caption-window-container',
+                '#ytp-caption-window',
+                '.ytp-caption-panel',
+                '.ytp-caption-panel-content'
+            ];
+            for (var i = 0; i < selectors.length; i++) {
+                var els = document.querySelectorAll(selectors[i]);
+                for (var j = 0; j < els.length; j++) {
+                    if (els[j]) {
+                        els[j].remove();   // полностью удаляем элемент
+                    }
+                }
+            }
+        } catch(e) {}
+    }, 500);
+}
+
 function CLS63_LoadVideo(id, startSeconds) {
     pendingId = id;
     pendingStart = startSeconds || 0;
     if (isReady && player && player.loadVideoById) {
         player.loadVideoById({ videoId: id, startSeconds: startSeconds || 0 });
         startAdSkipper();
+        startSubtitleRemover();   // при загрузке нового видео тоже запускаем
     }
 }
 
@@ -133,6 +156,7 @@ function CLS63_Stop() {
     pendingId = null;
     if (skipInterval) clearInterval(skipInterval);
     if (volumeRecoveryInterval) clearInterval(volumeRecoveryInterval);
+    if (subtitleInterval) clearInterval(subtitleInterval);
     if (isReady && player && player.stopVideo) player.stopVideo();
 }
 </script>
