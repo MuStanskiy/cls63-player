@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html><head><style>
+html,body{margin:0;padding:0;background:#000;overflow:hidden;width:100%;height:100%;}
+#player{width:100%;height:100%;}
+</style></head>
+<body>
+<div id="player"></div>
+<script>
+console.log("CLS63: страница загружена, добавляю iframe_api script");
+var player;
+var isReady = false;
+var pendingId = null;
+var pendingStart = 0;
+
+var tag = document.createElement('script');
+tag.src = "https://www.youtube.com/iframe_api";
+document.body.appendChild(tag);
+
+function onYouTubeIframeAPIReady() {
+    console.log("CLS63: onYouTubeIframeAPIReady сработал, создаю YT.Player");
+    player = new YT.Player('player', {
+        height: '100%',
+        width: '100%',
+        playerVars: {
+            autoplay: 1,
+            controls: 0,
+            disablekb: 1,
+            modestbranding: 1,
+            rel: 0,
+            playsinline: 1,
+            origin: window.location.origin
+        },
+        events: {
+            'onReady': function(e) {
+                console.log("CLS63: onReady сработал, pendingId=" + pendingId);
+                isReady = true;
+                e.target.setVolume(80);
+                if (pendingId) {
+                    e.target.loadVideoById({ videoId: pendingId, startSeconds: pendingStart });
+                }
+            },
+            'onError': function(e) {
+                console.log("CLS63: onError код=" + e.data);
+            }
+        }
+    });
+}
+
+function CLS63_LoadVideo(id, startSeconds) {
+    console.log("CLS63: CLS63_LoadVideo вызван, id=" + id + " isReady=" + isReady);
+    pendingId = id;
+    pendingStart = startSeconds || 0;
+    if (isReady && player && player.loadVideoById) {
+        player.loadVideoById({ videoId: id, startSeconds: startSeconds || 0 });
+    }
+}
+function CLS63_SetVolume(v) {
+    if (isReady && player && player.setVolume) player.setVolume(v);
+}
+function CLS63_Stop() {
+    pendingId = null;
+    if (isReady && player && player.stopVideo) player.stopVideo();
+}
+</script>
+</body></html>
