@@ -6,7 +6,6 @@ html,body{margin:0;padding:0;background:#000;overflow:hidden;width:100%;height:1
 <body>
 <div id="player"></div>
 <script>
-console.log("CLS63: страница загружена, добавляю iframe_api script");
 var player;
 var isReady = false;
 var pendingId = null;
@@ -17,7 +16,6 @@ tag.src = "https://www.youtube.com/iframe_api";
 document.body.appendChild(tag);
 
 function onYouTubeIframeAPIReady() {
-    console.log("CLS63: onYouTubeIframeAPIReady сработал, создаю YT.Player");
     player = new YT.Player('player', {
         height: '100%',
         width: '100%',
@@ -28,26 +26,23 @@ function onYouTubeIframeAPIReady() {
             modestbranding: 1,
             rel: 0,
             playsinline: 1,
+            cc_load_policy: 0,
+            iv_load_policy: 3,
             origin: window.location.origin
         },
         events: {
             'onReady': function(e) {
-                console.log("CLS63: onReady сработал, pendingId=" + pendingId);
                 isReady = true;
                 e.target.setVolume(80);
                 if (pendingId) {
                     e.target.loadVideoById({ videoId: pendingId, startSeconds: pendingStart });
                 }
-            },
-            'onError': function(e) {
-                console.log("CLS63: onError код=" + e.data);
             }
         }
     });
 }
 
 function CLS63_LoadVideo(id, startSeconds) {
-    console.log("CLS63: CLS63_LoadVideo вызван, id=" + id + " isReady=" + isReady);
     pendingId = id;
     pendingStart = startSeconds || 0;
     if (isReady && player && player.loadVideoById) {
