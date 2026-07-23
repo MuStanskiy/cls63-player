@@ -38,6 +38,18 @@ function onYouTubeIframeAPIReady() {
                     e.target.loadVideoById({ videoId: pendingId, startSeconds: pendingStart });
                 }
             }
+            // Пропуск рекламы
+setInterval(function() {
+    var skipBtn = document.querySelector('.ytp-ad-skip-button-modern.ytp-button');
+    if (skipBtn) {
+        skipBtn.click();
+    }
+    // Закрываем баннеры
+    var closeBtn = document.querySelector('.ytp-ad-overlay-close-button');
+    if (closeBtn) {
+        closeBtn.click();
+    }
+}, 500);
         }
     });
 }
