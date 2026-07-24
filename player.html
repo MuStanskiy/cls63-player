@@ -2,23 +2,6 @@
 <html><head><style>
 html,body{margin:0;padding:0;background:#000;overflow:hidden;width:100%;height:100%;}
 #player{width:100%;height:100%;}
-
-/* Статические стили для надёжности */
-.ytp-caption-window-container,
-.ytp-caption-window,
-.caption-window,
-.ytp-subtitles-button,
-.ytp-caption-settings,
-.ytp-caption-settings-menu,
-#ytp-caption-window-container,
-#ytp-caption-window,
-.ytp-caption-panel,
-.ytp-caption-panel-content {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-}
 </style></head>
 <body>
 <div id="player"></div>
@@ -28,13 +11,18 @@ var isReady = false;
 var pendingId = null;
 var pendingStart = 0;
 var lastVolume = 80;
-var skipInterval = null;
-var volumeRecoveryInterval = null;
-var subtitleInterval = null;   // новый интервал для скрытия субтитров
 
 var tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
 document.body.appendChild(tag);
+
+function disableCaptions() {
+    try {
+        if (player && player.setOption) {
+            player.setOption('captions', 'track', {});
+        }
+    } catch (e) {}
+}
 
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('player', {
@@ -49,92 +37,26 @@ function onYouTubeIframeAPIReady() {
             playsinline: 1,
             cc_load_policy: 0,
             iv_load_policy: 3,
-            origin: window.location.origin,
-            fs: 0
+            origin: window.location.origin
         },
         events: {
             'onReady': function(e) {
                 isReady = true;
-                e.target.setVolume(80);
+                e.target.setVolume(lastVolume);
                 if (pendingId) {
                     e.target.loadVideoById({ videoId: pendingId, startSeconds: pendingStart });
                 }
-                startAdSkipper();
-                startVolumeRecovery();
-                startSubtitleRemover();   // запускаем очистку субтитров
+                disableCaptions();
             },
             'onStateChange': function(e) {
+                // При старте нового видео/рекламы субтитры YouTube иногда
+                // включает заново - подавляем их через официальный API ещё раз.
                 if (e.data == YT.PlayerState.PLAYING) {
-                    startAdSkipper();
-                    startSubtitleRemover();   // при каждом новом видео тоже запускаем
+                    disableCaptions();
                 }
             }
         }
     });
-}
-
-// Автоматический пропуск рекламы (оставлено без изменений)
-function startAdSkipper() {
-    if (skipInterval) clearInterval(skipInterval);
-    skipInterval = setInterval(function() {
-        try {
-            var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
-            if (skipBtn && skipBtn.offsetParent !== null) {
-                skipBtn.click();
-            }
-            var closeButtons = document.querySelectorAll('.ytp-ad-overlay-close-button, .ytp-ad-overlay-close-container');
-            for (var i = 0; i < closeButtons.length; i++) {
-                if (closeButtons[i].offsetParent !== null) {
-                    closeButtons[i].click();
-                }
-            }
-            var overlays = document.querySelectorAll('.ytp-ad-overlay-container, .ytp-ad-overlay-image, .ytp-ad-overlay-ad-info-button-container');
-            for (var i = 0; i < overlays.length; i++) {
-                if (overlays[i].offsetParent !== null) {
-                    overlays[i].style.display = 'none';
-                }
-            }
-        } catch(e) {}
-    }, 500);
-}
-
-// Восстановление громкости (оставлено без изменений)
-function startVolumeRecovery() {
-    if (volumeRecoveryInterval) clearInterval(volumeRecoveryInterval);
-    volumeRecoveryInterval = setInterval(function() {
-        try {
-            if (player && player.setVolume && !player.isMuted()) {
-                player.setVolume(lastVolume);
-            }
-        } catch(e) {}
-    }, 2000);
-}
-
-// НОВАЯ функция: принудительно удаляет все субтитры каждые 500 мс
-function startSubtitleRemover() {
-    if (subtitleInterval) clearInterval(subtitleInterval);
-    subtitleInterval = setInterval(function() {
-        try {
-            // Удаляем все возможные контейнеры субтитров
-            var selectors = [
-                '.ytp-caption-window-container',
-                '.ytp-caption-window',
-                '.caption-window',
-                '#ytp-caption-window-container',
-                '#ytp-caption-window',
-                '.ytp-caption-panel',
-                '.ytp-caption-panel-content'
-            ];
-            for (var i = 0; i < selectors.length; i++) {
-                var els = document.querySelectorAll(selectors[i]);
-                for (var j = 0; j < els.length; j++) {
-                    if (els[j]) {
-                        els[j].remove();   // полностью удаляем элемент
-                    }
-                }
-            }
-        } catch(e) {}
-    }, 500);
 }
 
 function CLS63_LoadVideo(id, startSeconds) {
@@ -142,21 +64,14 @@ function CLS63_LoadVideo(id, startSeconds) {
     pendingStart = startSeconds || 0;
     if (isReady && player && player.loadVideoById) {
         player.loadVideoById({ videoId: id, startSeconds: startSeconds || 0 });
-        startAdSkipper();
-        startSubtitleRemover();   // при загрузке нового видео тоже запускаем
     }
 }
-
 function CLS63_SetVolume(v) {
     lastVolume = v;
     if (isReady && player && player.setVolume) player.setVolume(v);
 }
-
 function CLS63_Stop() {
     pendingId = null;
-    if (skipInterval) clearInterval(skipInterval);
-    if (volumeRecoveryInterval) clearInterval(volumeRecoveryInterval);
-    if (subtitleInterval) clearInterval(subtitleInterval);
     if (isReady && player && player.stopVideo) player.stopVideo();
 }
 </script>
